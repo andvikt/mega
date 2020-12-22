@@ -1,0 +1,16 @@
+{
+  "domain": "mega",
+  "name": "mega",
+  "config_flow": false,
+  "documentation": "https://www.home-assistant.io/integrations/mega",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [
+    "mqtt"
+  ],
+  "codeowners": [
+    "@andvikt"
+  ]
+}

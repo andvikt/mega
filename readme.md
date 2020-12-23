@@ -15,7 +15,7 @@
 git clone https://github.com/andvikt/mega.git
 ```
 
-##Пример настройки:
+## Пример настройки:
 ```yaml
 mega: 
   mega1:

@@ -7,6 +7,7 @@ from homeassistant.components import mqtt
 from .const import DOMAIN
 from .hub import MegaD
 
+
 CONF_MQTT_ID = "mqtt_id"
 
 CONFIG_SCHEMA = vol.Schema(
@@ -36,4 +37,8 @@ async def async_setup(hass: HomeAssistant, config: dict):
         if not await hub.authenticate():
             raise Exception("not authentificated")
         hass.data[DOMAIN][id] = hub
+    hass.services.register(
+        DOMAIN,
+    )
+
     return True

@@ -24,8 +24,11 @@ class MegaD:
         else:
             self.mqtt_id = mqtt_id
 
-    async def send_command(self, port, cmd):
-        url = f"http://{self.host}/{self.sec}/?pt={port}&cmd={cmd}"
+    async def send_command(self, port = None, cmd = None):
+        if port:
+            url = f"http://{self.host}/{self.sec}/?pt={port}&cmd={cmd}"
+        else:
+            url = f"http://{self.host}/{self.sec}/?cmd={cmd}"
         print(url)
         async with self.lck:
             async with aiohttp.request("get", url=url) as req:
@@ -33,6 +36,27 @@ class MegaD:
                     return False
                 else:
                     return True
+
+    async def save(self):
+        await self.send_command(cmd='s')
+
+    async def get_port(self, port):
+        async with self.lck:
+            await self.mqtt.async_publish(
+                topic=f'{self.mqtt_id}/cmd',
+                payload=f'get:{port}',
+                qos=0,
+                retain=False,
+            )
+            await asyncio.sleep(0.1)
+
+    async def get_all_ports(self):
+        for x in range(37):
+            await self.get_port(x)
+
+    async def reboot(self, save=True):
+        await self.save()
+        # await self.send_command(cmd=)
 
     async def subscribe(self, port, callback):
         print(f"{self.mqtt_id}/{port}")

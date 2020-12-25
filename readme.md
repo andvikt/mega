@@ -1,4 +1,4 @@
-# MegaD Homeassistant custom component
+# MegaD HomeAssistant custom component
 
 Интеграция с megad
 
@@ -16,6 +16,8 @@
 ```shell
 git clone https://github.com/andvikt/mega.git
 ```
+## Зависимости
+Перед использованием необходимо настроить интеграцию mqtt в HomeAssistant
 
 Перезагрузить HA
 ## Настройка из веб-интерфейса

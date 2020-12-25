@@ -29,7 +29,7 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    if data[CONF_ID] in hass.data[DOMAIN]:
+    if data[CONF_ID] in hass.data.get(DOMAIN, []):
         raise exceptions.DuplicateId('duplicate_id')
     _mqtt = hass.data.get(mqtt.DOMAIN)
     if not isinstance(_mqtt, mqtt.MQTT):

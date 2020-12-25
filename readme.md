@@ -49,6 +49,14 @@ light:
         - 9
         - 10
 
+binary_sensor:
+  - platform: mega
+    mega1:
+      - port: 16
+        name: sensor1
+      - port: 18
+        name: sensor2
+
 switch:
   - platform: mega
     mega1:

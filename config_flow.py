@@ -28,6 +28,8 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
+    if data[CONF_ID] in hass.data[DOMAIN]:
+        raise exceptions.DuplicateId('duplicate_id')
     _mqtt = hass.data.get(mqtt.DOMAIN)
     if not isinstance(_mqtt, mqtt.MQTT):
         raise exceptions.MqttNotConfigured("mqtt must be configured first")
@@ -59,9 +61,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "cannot_connect"
         except exceptions.InvalidAuth:
             errors["base"] = "invalid_auth"
-        except Exception:  # pylint: disable=broad-except
+        except exceptions.DuplicateId:
+            errors["base"] = "duplicate_id"
+        except Exception as exc:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
+            errors[CONF_ID] = str(exc)
         else:
             return self.async_create_entry(
                 title=user_input.get(CONF_ID, user_input[CONF_HOST]),

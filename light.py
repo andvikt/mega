@@ -71,6 +71,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
                 ent = MegaLight(
                     mega=mega, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=False
                 )
+            await mega.add_entity(ent)
             ents.append(ent)
     add_entities(ents)
     return True
@@ -82,6 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     async for port, pty, m in hub.scan_ports():
         if pty == "1" and m in ['0', '1']:
             light = MegaLight(hub, port, dimmer=m == '1')
+            await hub.add_entity(light)
             devices.append(light)
     async_add_devices(devices)
 
@@ -104,6 +106,10 @@ class MegaLight(LightEntity, RestoreEntity):
         self.port = port
         self._name = name
         self._unique_id = unique_id
+
+    @property
+    def available(self) -> bool:
+        return self.mega.online
 
     @property
     def brightness(self):

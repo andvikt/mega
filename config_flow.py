@@ -6,7 +6,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries, core
 from homeassistant.components import mqtt
-from homeassistant.const import CONF_HOST, CONF_ID, CONF_NAME, CONF_PASSWORD
+from homeassistant.const import CONF_HOST, CONF_ID, CONF_PASSWORD, CONF_SCAN_INTERVAL
 from .const import DOMAIN  # pylint:disable=unused-import
 from .hub import MegaD
 from . import exceptions
@@ -19,6 +19,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_ID, default='def'): str,
         vol.Required(CONF_HOST, default="192.168.0.14"): str,
         vol.Required(CONF_PASSWORD, default="sec"): str,
+        vol.Optional(CONF_SCAN_INTERVAL, default=60): int,
     },
 )
 

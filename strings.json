@@ -8,7 +8,8 @@
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",
           "id": "[%key:common::config_flow::data::password%]",
-          "mqtt_id": "[%key:common::config_flow::data::mqtt_id%]"
+          "mqtt_id": "[%key:common::config_flow::data::mqtt_id%]",
+          "scan_interval": "[%key:common::config_flow::data::mqtt_id%]"
         }
       }
     },

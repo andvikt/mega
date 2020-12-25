@@ -16,7 +16,8 @@
                     "password": "Password",
                     "username": "Username",
                     "id": "ID",
-                    "mqtt_id": "MQTT id"
+                    "mqtt_id": "MQTT id",
+                    "scan_interval": "Scan aliveness interval (sec)"
                 }
             }
         }

@@ -1,10 +1,12 @@
 import asyncio
 
 import aiohttp
+import typing
 from bs4 import BeautifulSoup
 
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import Entity
 from .exceptions import CannotConnect
 
 
@@ -19,7 +21,7 @@ class MegaD:
             mqtt: mqtt.MQTT,
             id: str = None,
             mqtt_id: str = None,
-            poll_interval=60,
+            scan_interval=60,
             **kwargs,
     ):
         """Initialize."""
@@ -30,7 +32,9 @@ class MegaD:
         self.id = id
         self.lck = asyncio.Lock()
         self.is_alive = asyncio.Condition()
-        self.poll_interval = poll_interval
+        self.online = True
+        self.entities: typing.List[Entity] = []
+        self.poll_interval = scan_interval
         self.subscriptions = []
         if not mqtt_id:
             _id = host.split(".")[-1]
@@ -38,6 +42,10 @@ class MegaD:
         else:
             self.mqtt_id = mqtt_id
             self._loop: asyncio.AbstractEventLoop = None
+
+    async def add_entity(self, ent):
+        async with self.lck:
+            self.entities.append(ent)
 
     async def poll(self):
         """
@@ -55,11 +63,18 @@ class MegaD:
                         f'mega.{self.id}',
                         'online',
                     )
+                    self.online = True
                 except asyncio.TimeoutError:
+                    self.online = False
                     self.hass.states.async_set(
                         f'mega.{self.id}',
                         'offline',
                     )
+                for x in self.entities:
+                    try:
+                        await x.async_update_ha_state()
+                    except RuntimeError:
+                        pass
             await asyncio.sleep(self.poll_interval)
 
     async def _async_notify(self):

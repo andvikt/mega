@@ -55,6 +55,7 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
                     mega=mega, port=x[CONF_PORT], name=x[CONF_NAME]
                 )
             ents.append(ent)
+            await mega.add_entity(ent)
     add_entities(ents)
     return True
 
@@ -64,8 +65,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     devices = []
     async for port, pty, m in hub.scan_ports():
         if pty == "0":
-            light = MegaBinarySensor(hub, port)
-            devices.append(light)
+            sensor = MegaBinarySensor(hub, port)
+            devices.append(sensor)
+            await hub.add_entity(sensor)
     async_add_devices(devices)
 
 

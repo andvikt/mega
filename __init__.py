@@ -4,7 +4,7 @@ import typing
 from functools import partial
 
 import voluptuous as vol
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PLATFORM
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_PLATFORM, CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.service import bind_hass
@@ -20,6 +20,7 @@ MEGA = {
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_MQTT_ID, default=""): str,
+        vol.Optional(CONF_SCAN_INTERVAL, default=60): int,
     }
 MEGA_MAPPED = {str: MEGA}
 

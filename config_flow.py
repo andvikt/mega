@@ -16,11 +16,10 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_ID, default="mega"): str,
+        vol.Required(CONF_ID, default='def'): str,
         vol.Required(CONF_HOST, default="192.168.0.14"): str,
         vol.Required(CONF_PASSWORD, default="sec"): str,
-        vol.Optional(CONF_NAME, default="MegaD"): str,
-    }
+    },
 )
 
 
@@ -32,7 +31,7 @@ async def validate_input(hass: core.HomeAssistant, data):
     _mqtt = hass.data.get(mqtt.DOMAIN)
     if not isinstance(_mqtt, mqtt.MQTT):
         raise exceptions.MqttNotConfigured("mqtt must be configured first")
-    hub = MegaD(data["host"], data["password"], _mqtt)
+    hub = MegaD(hass, **data, mqtt=_mqtt)
     if not await hub.authenticate():
         raise exceptions.InvalidAuth
 
@@ -65,7 +64,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = "unknown"
         else:
             return self.async_create_entry(
-                title=user_input.get(CONF_NAME, user_input[CONF_HOST]),
+                title=user_input.get(CONF_ID, user_input[CONF_HOST]),
                 data=user_input,
             )
 

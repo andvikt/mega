@@ -73,7 +73,7 @@ class MegaSwitch(SwitchEntity, RestoreEntity):
 
     @property
     def unique_id(self):
-        return f"mega_{self.mega.host}_s{self.port}"
+        return f"mega_{self.mega.id}_s{self.port}"
 
     async def async_added_to_hass(self) -> None:
         await self.mega.subscribe(self.port, callback=self._set_state_from_msg)

@@ -5,10 +5,9 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components.light import (
-    PLATFORM_SCHEMA as LIGHT_SCHEMA,
-    SUPPORT_BRIGHTNESS,
-    LightEntity,
+from homeassistant.components.binary_sensor import (
+    PLATFORM_SCHEMA as SENSOR_SCHEMA,
+    BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -22,8 +21,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 
 from .hub import MegaD
-from .const import CONF_DIMMER, CONF_SWITCH
-
 
 lg = logging.getLogger(__name__)
 
@@ -35,14 +32,9 @@ _EXTENDED = {
     vol.Optional(CONF_UNIQUE_ID): str,
 }
 _ITEM = vol.Any(int, _EXTENDED)
-DIMMER = {vol.Required(CONF_DIMMER): [_ITEM]}
-SWITCH = {vol.Required(CONF_SWITCH): [_ITEM]}
-PLATFORM_SCHEMA = LIGHT_SCHEMA.extend(
+PLATFORM_SCHEMA = SENSOR_SCHEMA.extend(
     {
-        vol.Optional(str, description="mega id"): {
-            vol.Optional("dimmer", default=[]): [_ITEM],
-            vol.Optional("switch", default=[]): [_ITEM],
-        }
+        vol.Optional(str, description="mega id"): [_ITEM]
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -53,23 +45,14 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     ents = []
     for mid, _config in config.items():
         mega = hass.data["mega"][mid]
-        for x in _config["dimmer"]:
+        for x in _config:
             if isinstance(x, int):
-                ent = MegaLight(
-                    mega=mega, port=x, dimmer=True)
-            else:
-                ent = MegaLight(
-                    mega=mega, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=True
-                )
-            ents.append(ent)
-        for x in _config["switch"]:
-            if isinstance(x, int):
-                ent = MegaLight(
-                    mega=mega, port=x, dimmer=False
+                ent = MegaBinarySensor(
+                    mega=mega, port=x
                 )
             else:
-                ent = MegaLight(
-                    mega=mega, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=False
+                ent = MegaBinarySensor(
+                    mega=mega, port=x[CONF_PORT], name=x[CONF_NAME]
                 )
             ents.append(ent)
     add_entities(ents)
@@ -80,34 +63,28 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     hub: MegaD = hass.data['mega'][config_entry.data[CONF_ID]]
     devices = []
     async for port, pty, m in hub.scan_ports():
-        if pty == "1" and m in ['0', '1']:
-            light = MegaLight(hub, port, dimmer=m == '1')
+        if pty == "0":
+            light = MegaBinarySensor(hub, port)
             devices.append(light)
     async_add_devices(devices)
 
 
-class MegaLight(LightEntity, RestoreEntity):
+class MegaBinarySensor(BinarySensorEntity, RestoreEntity):
 
     def __init__(
             self,
             mega: MegaD,
             port: int,
-            dimmer=False,
             name=None,
             unique_id=None
     ):
         self._state = None
         self._is_on = False
         self._brightness = None
-        self.dimmer = dimmer
         self.mega: MegaD = mega
         self.port = port
         self._name = name
         self._unique_id = unique_id
-
-    @property
-    def brightness(self):
-        return self._brightness
 
     @property
     def name(self):
@@ -122,39 +99,12 @@ class MegaLight(LightEntity, RestoreEntity):
         state = await self.async_get_last_state()
         if state:
             self._is_on = state.state == "on"
-            self._brightness = state.attributes.get("brightness")
         await asyncio.sleep(0.1)
         await self.mega.get_port(self.port)
-
-
-    @property
-    def supported_features(self):
-        return SUPPORT_BRIGHTNESS if self.dimmer else 0
 
     @property
     def is_on(self) -> bool:
         return self._is_on
-
-    async def async_turn_on(self, brightness=None, **kwargs) -> None:
-        brightness = brightness or self._brightness
-        if self.dimmer and brightness == 0:
-            cmd = 255
-        elif self.dimmer:
-            cmd = brightness
-        else:
-            cmd = 1
-        if await self.mega.send_command(self.port, f"{self.port}:{cmd}"):
-            self._is_on = True
-            self._brightness = brightness
-        await self.async_update_ha_state()
-
-    async def async_turn_off(self, **kwargs) -> None:
-
-        cmd = "0"
-
-        if await self.mega.send_command(self.port, f"{self.port}:{cmd}"):
-            self._is_on = False
-        await self.async_update_ha_state()
 
     def _set_state_from_msg(self, msg):
         state = json.loads(msg.payload)

@@ -13,9 +13,13 @@
 Пока поддерживаются только базовые устройства: light, switch, binary_sensor. light может работать как диммер
 ## Установка
 В папке config/custom_components выполнить:
-```shell
-git clone https://github.com/andvikt/mega.git
-```
+  ```shell
+  git clone https://github.com/andvikt/mega.git
+  ```
+  Обновление:
+  ```shell
+  git pull
+  ```
 ## Зависимости
 Перед использованием необходимо настроить интеграцию mqtt в HomeAssistant
 

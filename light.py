@@ -165,7 +165,17 @@ class MegaLight(LightEntity, RestoreEntity):
     def _set_state_from_msg(self, msg):
         try:
             state = json.loads(msg.payload)
-            self._is_on = state.get("value") == "ON"
+            val = state.get("value")
+            try:
+                val = int(val)
+            except Exception:
+                pass
+            if isinstance(val, int):
+                self._is_on = val > 0
+                if val > 0:
+                    self._brightness = val
+            else:
+                self._is_on = val == "ON"
             self.hass.async_create_task(self.async_update_ha_state())
         except Exception as exc:
             print(msg, exc)

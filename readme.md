@@ -1,6 +1,6 @@
 # MegaD HomeAssistant custom component
 
-Интеграция с megad
+Интеграция с [MegaD-2561](https://www.ab-log.ru/smart-house/ethernet/megad-2561)
 
 ## Основные особенности:
 - Настройка как из yaml так и из веб-интерфейса

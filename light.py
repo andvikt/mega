@@ -117,7 +117,7 @@ class MegaLight(LightEntity, RestoreEntity):
 
     @property
     def name(self):
-        return self._name or f"mega_p{self.port}"
+        return self._name or f"{self.mega.id}_p{self.port}"
 
     @property
     def unique_id(self):

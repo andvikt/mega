@@ -157,6 +157,9 @@ class MegaLight(LightEntity, RestoreEntity):
         await self.async_update_ha_state()
 
     def _set_state_from_msg(self, msg):
-        state = json.loads(msg.payload)
-        self._is_on = state.get("value") == "ON"
-        self.hass.async_create_task(self.async_update_ha_state())
+        try:
+            state = json.loads(msg.payload)
+            self._is_on = state.get("value") == "ON"
+            self.hass.async_create_task(self.async_update_ha_state())
+        except Exception as exc:
+            print(msg, exc)

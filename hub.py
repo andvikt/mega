@@ -19,7 +19,7 @@ class MegaD:
             mqtt: mqtt.MQTT,
             id: str = None,
             mqtt_id: str = None,
-            poll_interval=5,
+            poll_interval=60,
             **kwargs,
     ):
         """Initialize."""
@@ -74,13 +74,13 @@ class MegaD:
             'get', f'http://{self.host}/{self.sec}/?cf=2'
         ) as req:
             data = await req.text()
-            data = BeautifulSoup(data)
+            data = BeautifulSoup(data, features="lxml")
             _id = data.find(attrs={'name': 'mdid'})
             if _id:
                 _id = _id['value']
             return _id or 'megad/' + self.host.split('.')[-1]
 
-    async def send_command(self, port = None, cmd = None):
+    async def send_command(self, port=None, cmd=None):
         if port:
             url = f"http://{self.host}/{self.sec}/?pt={port}&cmd={cmd}"
         else:

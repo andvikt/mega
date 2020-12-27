@@ -20,6 +20,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
+from .entities import BaseMegaEntity
 
 from .hub import MegaD
 from .const import CONF_DIMMER, CONF_SWITCH
@@ -52,86 +53,60 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     config.pop(CONF_PLATFORM)
     ents = []
     for mid, _config in config.items():
-        mega = hass.data["mega"][mid]
         for x in _config["dimmer"]:
             if isinstance(x, int):
                 ent = MegaLight(
-                    mega=mega, port=x, dimmer=True)
+                    mega_id=mid, port=x, dimmer=True)
             else:
                 ent = MegaLight(
-                    mega=mega, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=True
+                    mega_id=mid, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=True
                 )
             ents.append(ent)
         for x in _config["switch"]:
             if isinstance(x, int):
                 ent = MegaLight(
-                    mega=mega, port=x, dimmer=False
+                    mega_id=mid, port=x, dimmer=False
                 )
             else:
                 ent = MegaLight(
-                    mega=mega, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=False
+                    mega_id=mid, port=x[CONF_PORT], name=x[CONF_NAME], dimmer=False
                 )
-            await mega.add_entity(ent)
             ents.append(ent)
     add_entities(ents)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
-    hub: MegaD = hass.data['mega'][config_entry.data[CONF_ID]]
+    mid = config_entry.data[CONF_ID]
+    hub: MegaD = hass.data['mega'][mid]
     devices = []
     async for port, pty, m in hub.scan_ports():
         if pty == "1" and m in ['0', '1']:
-            light = MegaLight(hub, port, dimmer=m == '1')
-            await hub.add_entity(light)
+            light = MegaLight(mega_id=mid, port=port, dimmer=m == '1')
             devices.append(light)
     async_add_devices(devices)
 
 
-class MegaLight(LightEntity, RestoreEntity):
+class MegaLight(LightEntity, BaseMegaEntity):
 
     def __init__(
             self,
-            mega: MegaD,
-            port: int,
             dimmer=False,
-            name=None,
-            unique_id=None
+            *args, **kwargs
     ):
-        self._state = None
-        self._is_on = False
+        super().__init__(
+            *args, **kwargs
+        )
         self._brightness = None
+        self._is_on = None
         self.dimmer = dimmer
-        self.mega: MegaD = mega
-        self.port = port
-        self._name = name
-        self._unique_id = unique_id
-
-    @property
-    def available(self) -> bool:
-        return self.mega.online
 
     @property
     def brightness(self):
-        return self._brightness
-
-    @property
-    def name(self):
-        return self._name or f"{self.mega.id}_p{self.port}"
-
-    @property
-    def unique_id(self):
-        return self._unique_id or f"mega_{self.mega.id}_{self.port}"
-
-    async def async_added_to_hass(self) -> None:
-        await self.mega.subscribe(self.port, callback=self._set_state_from_msg)
-        state = await self.async_get_last_state()
-        if state:
-            self._is_on = state.state == "on"
-            self._brightness = state.attributes.get("brightness")
-        await asyncio.sleep(0.1)
-        await self.mega.get_port(self.port)
-
+        if self._brightness is not None:
+            return self._brightness
+        if self._state:
+            return self._state.attributes.get("brightness")
 
     @property
     def supported_features(self):
@@ -139,10 +114,12 @@ class MegaLight(LightEntity, RestoreEntity):
 
     @property
     def is_on(self) -> bool:
-        return self._is_on
+        if self._is_on is not None:
+            return self._is_on
+        return self._state == 'ON'
 
     async def async_turn_on(self, brightness=None, **kwargs) -> None:
-        brightness = brightness or self._brightness
+        brightness = brightness or self.brightness
         if self.dimmer and brightness == 0:
             cmd = 255
         elif self.dimmer:
@@ -162,20 +139,16 @@ class MegaLight(LightEntity, RestoreEntity):
             self._is_on = False
         await self.async_update_ha_state()
 
-    def _set_state_from_msg(self, msg):
+    def _update(self, payload: dict):
+        val = payload.get("value")
         try:
-            state = json.loads(msg.payload)
-            val = state.get("value")
-            try:
-                val = int(val)
-            except Exception:
-                pass
-            if isinstance(val, int):
-                self._is_on = val > 0
-                if val > 0:
-                    self._brightness = val
-            else:
-                self._is_on = val == "ON"
-            self.hass.async_create_task(self.async_update_ha_state())
-        except Exception as exc:
-            print(msg, exc)
+            val = int(val)
+        except Exception:
+            pass
+        if isinstance(val, int):
+            self._is_on = val
+            if val > 0:
+                self._brightness = val
+        else:
+            self._is_on = val == 'ON'
+

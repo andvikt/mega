@@ -1,0 +1,27 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Уже настроено"
+        },
+        "error": {
+            "cannot_connect": "Невозможно подключиться",
+            "invalid_auth": "Неправильный пароль",
+            "unknown": "Неизвестная ошибка",
+            "duplicate_id": "Дубликат ID"
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "host": "Хост",
+                    "password": "Пароль",
+                    "username": "Пользователь",
+                    "id": "ID",
+                    "mqtt_id": "MQTT id",
+                    "scan_interval": "Периодичность обновлений (сек.) для датчиков и статуса меги",
+                    "port_to_scan": "Порт, который сканируется когда нет датчиков"
+                }
+            }
+        }
+    },
+    "title": "mega"
+}

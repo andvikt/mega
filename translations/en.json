@@ -17,7 +17,8 @@
                     "username": "Username",
                     "id": "ID",
                     "mqtt_id": "MQTT id",
-                    "scan_interval": "Scan aliveness interval (sec)"
+                    "scan_interval": "Scan interval (sec) (used for aliveness and sensors)",
+                    "port_to_scan": "Port to poll aliveness (needed only if no sensors used)"
                 }
             }
         }

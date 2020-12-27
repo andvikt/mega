@@ -1,4 +1,6 @@
 import asyncio
+import logging
+from functools import wraps
 
 import aiohttp
 import typing
@@ -19,9 +21,11 @@ class MegaD:
             host: str,
             password: str,
             mqtt: mqtt.MQTT,
-            id: str = None,
+            lg:logging.Logger,
+            id: str,
             mqtt_id: str = None,
             scan_interval=60,
+            port_to_scan=0,
             **kwargs,
     ):
         """Initialize."""
@@ -36,6 +40,10 @@ class MegaD:
         self.entities: typing.List[Entity] = []
         self.poll_interval = scan_interval
         self.subscriptions = []
+        self.lg: logging.Logger = lg.getChild(self.id)
+        self._scanned = {}
+        self.sensors = []
+        self.port_to_scan = port_to_scan
         if not mqtt_id:
             _id = host.split(".")[-1]
             self.mqtt_id = f"megad/{_id}"
@@ -47,16 +55,29 @@ class MegaD:
         async with self.lck:
             self.entities.append(ent)
 
+    async def get_sensors(self):
+        _ports = {x.port for x in self.sensors}
+        for x in _ports:
+            await self.get_port(x)
+            await asyncio.sleep(self.poll_interval)
+
     async def poll(self):
         """
         Send get port 0 every poll_interval. When answer is received, mega.<id> becomes online else mega.<id> becomes
         offline
         """
         self._loop = asyncio.get_event_loop()
-        await self.subscribe(0, callback=self._notify)
+        if self.sensors:
+            await self.subscribe(self.sensors[0].port, callback=self._notify)
+        else:
+            await self.subscribe(self.port_to_scan, callback=self._notify)
         while True:
             async with self.is_alive:
-                await self.get_port(0)
+                if len(self.sensors) > 0:
+                    await self.get_sensors()
+                else:
+                    await self.get_port(self.port_to_scan)
+
                 try:
                     await asyncio.wait_for(self.is_alive.wait(), timeout=5)
                     self.hass.states.async_set(
@@ -100,9 +121,11 @@ class MegaD:
             url = f"http://{self.host}/{self.sec}/?pt={port}&cmd={cmd}"
         else:
             url = f"http://{self.host}/{self.sec}/?cmd={cmd}"
+        self.lg.debug('run command: %s', url)
         async with self.lck:
             async with aiohttp.request("get", url=url) as req:
                 if req.status != 200:
+                    self.lg.warning('%s returned %s (%s)', url, req.status, await req.text())
                     return False
                 else:
                     return True
@@ -111,6 +134,9 @@ class MegaD:
         await self.send_command(cmd='s')
 
     async def get_port(self, port):
+        self.lg.debug(
+            f'get port: %s', port
+        )
         async with self.lck:
             await self.mqtt.async_publish(
                 topic=f'{self.mqtt_id}/cmd',
@@ -129,15 +155,28 @@ class MegaD:
         # await self.send_command(cmd=)
 
     async def subscribe(self, port, callback):
+
+        @wraps(callback)
+        def wrapper(msg):
+            self.lg.debug(
+                'process incomming message: %s', msg
+            )
+            return callback(msg)
+
+        self.lg.debug(
+            f'subscribe %s %s', port, wrapper
+        )
         subs = await self.mqtt.async_subscribe(
             topic=f"{self.mqtt_id}/{port}",
-            msg_callback=callback,
+            msg_callback=wrapper,
             qos=0,
         )
         self.subscriptions.append(subs)
 
     def unsubscribe_all(self):
+        self.lg.info('unsubscribe')
         for x in self.subscriptions:
+            self.lg.debug('unsubscribe %s', x)
             x()
 
     async def authenticate(self) -> bool:
@@ -150,8 +189,20 @@ class MegaD:
                     raise CannotConnect
                 return True
 
+    async def get_port_page(self, port):
+        url = f'http://{self.host}/{self.sec}/?pt={port}'
+        self.lg.debug(f'get page for port {port} {url}')
+        async with aiohttp.request('get', url) as req:
+            return await req.text()
+
     async def scan_port(self, port):
-        async with aiohttp.request('get', f'http://{self.host}/{self.sec}/?pt={port}') as req:
+        if port in self._scanned:
+            return self._scanned[port]
+        url = f'http://{self.host}/{self.sec}/?pt={port}'
+        self.lg.debug(
+            f'scan port %s: %s', port, url
+        )
+        async with aiohttp.request('get', url) as req:
             html = await req.text()
         tree = BeautifulSoup(html, features="lxml")
         pty = tree.find('select', attrs={'name': 'pty'})
@@ -163,9 +214,16 @@ class MegaD:
             m = tree.find('select', attrs={'name': 'm'})
             if m:
                 m = m.find(selected=True)['value']
+            self._scanned[port] = (pty, m)
+            return pty, m
+        elif pty == '3':
+            m = tree.find('select', attrs={'name': 'd'})
+            if m:
+                m = m.find(selected=True)['value']
+            self._scanned[port] = (pty, m)
             return pty, m
 
-    async def scan_ports(self):
+    async def scan_ports(self,):
         for x in range(37):
             ret = await self.scan_port(x)
             if ret:

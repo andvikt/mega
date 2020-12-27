@@ -15,6 +15,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
+from .entities import BaseMegaEntity
 
 from .hub import MegaD
 from .const import CONF_DIMMER, CONF_SWITCH
@@ -55,37 +56,19 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     return True
 
 
-class MegaSwitch(SwitchEntity, RestoreEntity):
-    def __init__(
-        self, hass: HomeAssistant, mega: MegaD, port: int, name=None
-    ):
-        self._state = None
-        self._is_on = False
-        self._brightness = None
-        self.mega: MegaD = mega
-        self.port = port
-        self._name = name
-        self.hass = hass
+class MegaSwitch(SwitchEntity, BaseMegaEntity):
 
-    @property
-    def name(self):
-        return self._name or f"mega_p{self.port}"
-
-    @property
-    def unique_id(self):
-        return f"mega_{self.mega.id}_s{self.port}"
-
-    async def async_added_to_hass(self) -> None:
-        await self.mega.subscribe(self.port, callback=self._set_state_from_msg)
-        state = await self.async_get_last_state()
-        if state:
-            self._is_on = state.state == "on"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._is_on = None
 
     @property
     def is_on(self) -> bool:
-        return self._is_on
+        if self._is_on is not None:
+            return self._is_on
+        return self._state == 'ON'
 
-    async def async_turn_on(self,  **kwargs) -> None:
+    async def async_turn_on(self, **kwargs) -> None:
         cmd = 1
         if await self.mega.send_command(self.port, f"{self.port}:{cmd}"):
             self._is_on = True
@@ -99,7 +82,6 @@ class MegaSwitch(SwitchEntity, RestoreEntity):
             self._is_on = False
         await self.async_update_ha_state()
 
-    def _set_state_from_msg(self, msg):
-        state = json.loads(msg.payload)
-        self._is_on = state.get("value") == "ON"
-        self.hass.async_create_task(self.async_update_ha_state())
+    def _update(self, payload: dict):
+        val = payload.get("value")
+        self._is_on = val == 'ON'

@@ -10,7 +10,7 @@
 - Обратная связь по mqtt
 - Команды выполняются друг за другом без конкурентного доступа к ресурсам megad
 ## Устройства
-Пока поддерживаются только базовые устройства: light, switch, binary_sensor. light может работать как диммер
+Поддерживаются устройства: light, switch, binary_sensor, sensor. light может работать как диммер
 ## Установка
 В папке config/custom_components выполнить:
   ```shell
@@ -56,6 +56,18 @@ binary_sensor:
         name: sensor1
       - port: 18
         name: sensor2
+
+sensor:
+  - platform: mega
+    mega1:
+      - port: 10
+        name: some temp
+        type: w1
+        key: temp
+      - port: 10
+        name: some hum
+        type: w1
+        key: hum
 
 switch:
   - platform: mega

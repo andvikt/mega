@@ -1,5 +1,6 @@
 """The mega integration."""
 import asyncio
+import logging
 import typing
 from functools import partial
 
@@ -14,13 +15,16 @@ from .const import DOMAIN
 from .hub import MegaD
 
 
+_LOGGER = logging.getLogger(__name__)
 CONF_MQTT_ID = "mqtt_id"
+CONF_PORT_TO_SCAN = 'port_to_scan'
 
 MEGA = {
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_MQTT_ID, default=""): str,
         vol.Optional(CONF_SCAN_INTERVAL, default=60): int,
+        vol.Optional(CONF_PORT_TO_SCAN, default=0): int,
     }
 MEGA_MAPPED = {str: MEGA}
 
@@ -31,7 +35,11 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-PLATFORMS = ["light", "binary_sensor"]
+PLATFORMS = [
+    "light",
+    "binary_sensor",
+    "sensor",
+]
 ALIVE_STATE = 'alive'
 DEF_ID = 'def'
 _POLL_TASKS = {}
@@ -58,7 +66,7 @@ async def _add_mega(hass: HomeAssistant, id, data: dict):
     _mqtt = hass.data.get(mqtt.DOMAIN)
     if _mqtt is None:
         raise Exception('mqtt not configured, please configure mqtt first')
-    hass.data[DOMAIN][id] = hub = MegaD(hass, **data, mqtt=_mqtt)
+    hass.data[DOMAIN][id] = hub = MegaD(hass, **data, mqtt=_mqtt, lg=_LOGGER)
     if not await hub.authenticate():
         raise Exception("not authentificated")
     mid = await hub.get_mqtt_id()

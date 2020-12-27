@@ -80,6 +80,7 @@ def _make_entity(mid: str, port: int, conf: dict):
             patt=PATTERNS[key],
             unit_of_measurement=UNITS[key],  # TODO: make other units
             device_class=CLASSES[key],
+            id_suffix=key
         )
 
 
@@ -144,6 +145,11 @@ class Mega1WSensor(BaseMegaEntity):
         return self._value
 
     def _update(self, payload: dict):
-        val = self.patt.findall(payload.get('value', ''))
-        if val:
-            self._value = val[0]
+        val = payload.get('value', '')
+        if isinstance(val, str):
+            val = self.patt.findall(val)
+            if val:
+                self._value = val[0]
+        elif isinstance(val, (float, int)):
+            self._value = val
+        self.mega.lg.debug('parsed: %s', self._value)

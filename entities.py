@@ -14,14 +14,16 @@ class BaseMegaEntity(RestoreEntity):
             self,
             mega_id: str,
             port: int,
+            id_suffix=None,
             name=None,
             unique_id=None
     ):
         self._state: State = None
         self.port = port
         self._name = name
-        self._unique_id = unique_id
         self._mega_id = mega_id
+        self._unique_id = unique_id or f"mega_{mega_id}_{port}" + \
+                                       (f"_{id_suffix}" if id_suffix else "")
 
     @property
     def mega(self) -> MegaD:
@@ -37,7 +39,7 @@ class BaseMegaEntity(RestoreEntity):
 
     @property
     def unique_id(self):
-        return self._unique_id or f"mega_{self.mega.id}_{self.port}"
+        return self._unique_id
 
     async def async_added_to_hass(self) -> None:
         await self.mega.subscribe(self.port, callback=self.__update)
@@ -48,12 +50,13 @@ class BaseMegaEntity(RestoreEntity):
     def __update(self, msg):
         try:
             value = json.loads(msg.payload)
-            self._update(value)
-            self.mega.lg.debug(f'state after update %s', self._state)
-            self.hass.async_create_task(self.async_update_ha_state())
+        except Exception as exc:
+            self.mega.lg.warning(f'could not parse json ({msg.payload}): {exc}')
             return
-        except:
-            self.mega.lg.warning(f'could not parse json: {msg.payload}')
+        self._update(value)
+        self.hass.async_create_task(self.async_update_ha_state())
+        self.mega.lg.debug(f'state after update %s', self.state)
+        return
 
     def _update(self, payload: dict):
         raise NotImplementedError

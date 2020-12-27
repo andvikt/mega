@@ -209,7 +209,11 @@ class MegaD:
         if pty is None:
             return
         else:
-            pty = pty.find(selected=True)['value']
+            pty = pty.find(selected=True)
+            if pty:
+                pty = pty['value']
+            else:
+                return
         if pty in ['0', '1']:
             m = tree.find('select', attrs={'name': 'm'})
             if m:

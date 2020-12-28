@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from functools import wraps
 
@@ -26,6 +27,7 @@ class MegaD:
             mqtt_id: str = None,
             scan_interval=60,
             port_to_scan=0,
+            inverted:typing.List[int] = None,
             **kwargs,
     ):
         """Initialize."""
@@ -44,6 +46,7 @@ class MegaD:
         self._scanned = {}
         self.sensors = []
         self.port_to_scan = port_to_scan
+        self.inverted = inverted or []
         if not mqtt_id:
             _id = host.split(".")[-1]
             self.mqtt_id = f"megad/{_id}"
@@ -133,7 +136,21 @@ class MegaD:
     async def save(self):
         await self.send_command(cmd='s')
 
-    async def get_port(self, port):
+    async def get_port(self, port, get_value=False):
+        if get_value:
+            ftr = asyncio.get_event_loop().create_future()
+
+            def cb(msg):
+                try:
+                    ftr.set_result(json.loads(msg.payload).get('value'))
+                except Exception as exc:
+                    self.lg.warning(f'could not parse {msg.payload}: {exc}')
+            unsub = await self.mqtt.async_subscribe(
+                topic=f'{self.mqtt_id}/{port}',
+                msg_callback=cb,
+                qos=1,
+            )
+
         self.lg.debug(
             f'get port: %s', port
         )
@@ -145,6 +162,14 @@ class MegaD:
                 retain=False,
             )
             await asyncio.sleep(0.1)
+
+        if get_value:
+            try:
+                return await asyncio.wait_for(ftr, timeout=2)
+            except asyncio.TimeoutError:
+                self.lg.warning(f'timeout on port {port}')
+            finally:
+                unsub()
 
     async def get_all_ports(self):
         for x in range(37):

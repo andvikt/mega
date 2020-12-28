@@ -25,13 +25,13 @@ from .hub import MegaD
 import re
 
 lg = logging.getLogger(__name__)
-
-PATT_TEMP = re.compile(r'temp:([01234567890.]+|(NA))')
-PATT_HUM = re.compile(r'hum:([01234567890.]+|(NA))')
+TEMP_PATT = re.compile(r'temp:([01234567890\.]+)')
+HUM_PATT = re.compile(r'hum:([01234567890\.]+)')
 PATTERNS = {
-    TEMP: PATT_TEMP,
-    HUM: PATT_HUM,
+    TEMP: TEMP_PATT,
+    HUM: HUM_PATT,
 }
+
 UNITS = {
     TEMP: '°C',
     HUM: '%'
@@ -49,7 +49,7 @@ _ITEM = {
         W1,
         W1BUS,
     ),
-    vol.Optional(CONF_KEY, default=TEMP): vol.Any(*PATTERNS),
+    vol.Optional(CONF_KEY, default=''): str,
 }
 PLATFORM_SCHEMA = SENSOR_SCHEMA.extend(
     {
@@ -72,16 +72,15 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 
 def _make_entity(mid: str, port: int, conf: dict):
     key = conf[CONF_KEY]
-    if conf[CONF_TYPE] == W1:
-        return Mega1WSensor(
-            key=key,
-            mega_id=mid,
-            port=port,
-            patt=PATTERNS[key],
-            unit_of_measurement=UNITS[key],  # TODO: make other units
-            device_class=CLASSES[key],
-            id_suffix=key
-        )
+    return Mega1WSensor(
+        key=key,
+        mega_id=mid,
+        port=port,
+        patt=PATTERNS.get(key),
+        unit_of_measurement=UNITS.get(key, UNITS[TEMP]),  # TODO: make other units, make options in config flow
+        device_class=CLASSES.get(key, CLASSES[TEMP]),
+        id_suffix=key
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, async_add_devices):
@@ -89,12 +88,14 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
     hub: MegaD = hass.data['mega'][mid]
     devices = []
     async for port, pty, m in hub.scan_ports():
-        if pty == "3" and m == "3":
-            page = await hub.get_port_page(port)
-            lg.debug(f'html: %s', page)
-            for key, patt in PATTERNS.items():
-                if not patt.search(page):
-                    continue
+        if pty == "3":
+            values = await hub.get_port(port, get_value=True)
+            lg.debug(f'values: %s', values)
+            if values is None:
+                continue
+            if not isinstance(values, dict):
+                values = {None: values}
+            for key in values:
                 hub.lg.debug(f'add sensor {W1}:{key}')
                 sensor = _make_entity(
                     mid=mid,
@@ -110,15 +111,30 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry, asyn
 
 class Mega1WSensor(BaseMegaEntity):
 
-    def __init__(self, key, patt, unit_of_measurement, device_class, *args, **kwargs):
+    def __init__(
+            self,
+            unit_of_measurement,
+            device_class,
+            patt=None,
+            key=None,
+            *args,
+            **kwargs
+    ):
+        """
+        1-wire sensor entity
+
+        :param key: key to get value from mega's json
+        :param patt: pattern to extract value, must have at least one group that will contain parsed value
+        """
         super().__init__(*args, **kwargs)
         self._value = None
-        self.patt: typing.Pattern = patt
         self.key = key
+        self.patt = patt
         self._device_class = device_class
         self._unit_of_measurement = unit_of_measurement
 
     async def async_added_to_hass(self) -> None:
+
         await super(Mega1WSensor, self).async_added_to_hass()
         self.mega.sensors.append(self)
 
@@ -128,7 +144,10 @@ class Mega1WSensor(BaseMegaEntity):
 
     @property
     def unique_id(self):
-        return super().unique_id + f'_{self.key}'
+        if self.key:
+            return super().unique_id + f'_{self.key}'
+        else:
+            return super(Mega1WSensor, self).unique_id
 
     @property
     def device_class(self):
@@ -150,6 +169,11 @@ class Mega1WSensor(BaseMegaEntity):
             val = self.patt.findall(val)
             if val:
                 self._value = val[0]
+            else:
+                self.lg.warning(f'could not parse: {payload}')
+        elif isinstance(val, dict) and self.key is not None:
+            self._value = val.get(self.key)
         elif isinstance(val, (float, int)):
             self._value = val
-        self.mega.lg.debug('parsed: %s', self._value)
+        else:
+            self.lg.warning(f'could not parse: {payload}')

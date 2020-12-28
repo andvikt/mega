@@ -10,7 +10,8 @@
           "id": "[%key:common::config_flow::data::password%]",
           "mqtt_id": "[%key:common::config_flow::data::mqtt_id%]",
           "scan_interval": "[%key:common::config_flow::data::mqtt_id%]",
-          "port_to_scan": "[%key:common::config_flow::data::port_to_scan%]"
+          "port_to_scan": "[%key:common::config_flow::data::port_to_scan%]",
+          "invert": "[%key:common::config_flow::data::invert%]"
         }
       }
     },
@@ -22,6 +23,18 @@
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "[%key:common::config_flow::data::scan_interval%]",
+          "port_to_scan": "[%key:common::config_flow::data::port_to_scan%]",
+          "reload": "[%key:common::config_flow::data::reload%]",
+          "invert": "[%key:common::config_flow::data::invert%]"
+        }
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 import asyncio
 
 import json
+import logging
 
 from homeassistant.core import State
 from .hub import MegaD
@@ -9,7 +10,11 @@ from .const import DOMAIN
 
 
 class BaseMegaEntity(RestoreEntity):
-
+    """
+    Base Mega's entity. It is responsible for storing reference to mega hub
+    Also provides some basic entity information: unique_id, name, availiability
+    It also makes subscription to port states
+    """
     def __init__(
             self,
             mega_id: str,
@@ -22,8 +27,15 @@ class BaseMegaEntity(RestoreEntity):
         self.port = port
         self._name = name
         self._mega_id = mega_id
+        self._lg = None
         self._unique_id = unique_id or f"mega_{mega_id}_{port}" + \
                                        (f"_{id_suffix}" if id_suffix else "")
+
+    @property
+    def lg(self) -> logging.Logger:
+        if self._lg is None:
+            self._lg = self.mega.lg.getChild(self._name or self.unique_id)
+        return self._lg
 
     @property
     def mega(self) -> MegaD:
@@ -51,11 +63,11 @@ class BaseMegaEntity(RestoreEntity):
         try:
             value = json.loads(msg.payload)
         except Exception as exc:
-            self.mega.lg.warning(f'could not parse json ({msg.payload}): {exc}')
+            self.lg.warning(f'could not parse json ({msg.payload}): {exc}')
             return
         self._update(value)
         self.hass.async_create_task(self.async_update_ha_state())
-        self.mega.lg.debug(f'state after update %s', self.state)
+        self.lg.debug(f'state after update %s', self.state)
         return
 
     def _update(self, payload: dict):
